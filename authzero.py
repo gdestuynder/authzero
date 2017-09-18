@@ -52,14 +52,27 @@ class AuthZero(object):
 
         payload = DotDict(dict())
         payload_json = json.dumps(payload)
-        self.conn.request("GET",
-                          "/api/v2/users?fields={fields}&"
-                          "search_engine=v2&q={query_filter}".format(fields=fields, query_filter=query_filter),
-                          payload_json,
-                          self._authorize(self.default_headers))
-        res = self.conn.getresponse()
-        self._check_http_response(res)
-        users = json.loads(res.read())
+        page = 0
+        per_page = 100
+        totals = 0
+        done = -1
+        users = []
+        while totals > done:
+            self.conn.request("GET",
+                              "/api/v2/users?fields={fields}&"
+                              "search_engine=v2&q={query_filter}&per_page={per_page}"
+                              "&page={page}&include_totals=true"
+                              "".format(fields=fields, query_filter=query_filter, page=page, per_page=per_page),
+                              payload_json,
+                              self._authorize(self.default_headers))
+            res = self.conn.getresponse()
+            self._check_http_response(res)
+            ret = json.loads(res.read())
+            users += ret['users']
+            done = done + per_page
+            page = page + 1
+            totals = ret['total']
+            logging.debug("Got {} users out of {} - current page {}".format(done, totals, page))
         return users
 
     def get_user(self, user_id):
