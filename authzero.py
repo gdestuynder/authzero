@@ -43,7 +43,33 @@ class AuthZero(object):
         self.client_secret = None
         self.conn.close()
 
-    def list_users(self, fields="username,user_id,name,email,identities,groups", query_filter=""):
+    def get_clients(self, fields="description,name,client_id,oidc_conformant"):
+        payload = DotDict(dict())
+        payload_json = json.dumps(payload)
+        page = 0
+        per_page = 100
+        totals = 0
+        done = -1
+        clients = []
+        while totals > done:
+            self.conn.request("GET",
+                              "/api/v2/clients?fields={fields}"
+                              "&per_page={per_page}"
+                              "&page={page}&include_totals=true"
+                              "".format(fields=fields, page=page, per_page=per_page),
+                              payload_json,
+                              self._authorize(self.default_headers))
+            res = self.conn.getresponse()
+            self._check_http_response(res)
+            ret = json.loads(res.read())
+            clients += ret['clients']
+            done = done + per_page
+            page = page + 1
+            totals = ret['total']
+            logging.debug("Got {} clients out of {} - current page {}".format(done, totals, page))
+        return clients
+
+    def get_users(self, fields="username,user_id,name,email,identities,groups", query_filter=""):
         """
         Returns a list of users from the Auth0 API.
         query_filter: string
